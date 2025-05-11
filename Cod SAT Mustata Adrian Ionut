@@ -19,7 +19,7 @@ def truth_table_manual(fnc_formula, var_map):
         row = " | ".join("1" if assignment[v] else "0" for v in variables) + " | " + ("1" if result else "0")
         print(row)
 
-# === DPLL ===
+#DPLL
 def evaluate_clause(clause, assignment):
     return any((lit > 0 and assignment.get(abs(lit), False)) or
                (lit < 0 and not assignment.get(abs(lit), True))
@@ -52,7 +52,7 @@ def dpll(clauses, assignment=None):
             return True, final_assignment
     return False, {}
 
-# === DAVIS–PUTNAM (DP) ===
+#DAVIS–PUTNAM (DP)
 def resolve(ci, cj):
     for lit in ci:
         if -lit in cj:
@@ -82,7 +82,7 @@ def dp(formula):
             return True
     return True
 
-# === REZOLUȚIE ===
+#  REZOLUȚIE
 def optimized_resolution(formula):
     clauses = [frozenset(clause) for clause in formula]
     known_clauses = set(clauses)
@@ -104,7 +104,7 @@ def optimized_resolution(formula):
         known_clauses.update(new_clauses)
         new_clauses.clear()
 
-# === COMPARAȚIE METODE ===
+
 def run_all_methods_manual_output(fnc_formula, var_map):
     print("\n===== COMPARAȚIE METODE =====")
 
@@ -146,7 +146,7 @@ def run_all_methods_manual_output(fnc_formula, var_map):
     print(f"  Timp execuție: {end - start:.6f} sec")
     print(f"  Memorie maximă utilizată: {peak / 1024:.2f} KB")
 
-# === RULARE PRINCIPALĂ ===
+
 if __name__ == "__main__":
     print("Introduceți formula FNC (câte o clauză pe linie, ex: 1 -2)")
     print("Apăsați ENTER pe o linie goală pentru a termina.\n")
