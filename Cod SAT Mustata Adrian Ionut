@@ -1,0 +1,173 @@
+from itertools import product, combinations
+import time
+import tracemalloc
+
+# === TABEL DE ADEVĂR ===
+def truth_table_manual(fnc_formula, var_map):
+    print("\n===== TABELUL DE ADEVĂR =====")
+    variables = sorted(var_map.keys())
+    header = " | ".join(var_map[v] for v in variables) + " | Formula"
+    print(header)
+    print("-" * len(header))
+
+    for values in product([False, True], repeat=len(variables)):
+        assignment = dict(zip(variables, values))
+        result = all(any(
+            (lit > 0 and assignment[abs(lit)]) or (lit < 0 and not assignment[abs(lit)])
+            for lit in clause
+        ) for clause in fnc_formula)
+        row = " | ".join("1" if assignment[v] else "0" for v in variables) + " | " + ("1" if result else "0")
+        print(row)
+
+# === DPLL ===
+def evaluate_clause(clause, assignment):
+    return any((lit > 0 and assignment.get(abs(lit), False)) or
+               (lit < 0 and not assignment.get(abs(lit), True))
+               for lit in clause)
+
+def is_satisfied(formula, assignment):
+    return all(evaluate_clause(clause, assignment) for clause in formula)
+
+def choose_variable(clauses, assignment):
+    for clause in clauses:
+        for lit in clause:
+            var = abs(lit)
+            if var not in assignment:
+                return var
+    return None
+
+def dpll(clauses, assignment=None):
+    if assignment is None:
+        assignment = {}
+    if is_satisfied(clauses, assignment):
+        return True, assignment
+    if any(not evaluate_clause(clause, assignment) and all(abs(lit) in assignment for lit in clause) for clause in clauses):
+        return False, {}
+    var = choose_variable(clauses, assignment)
+    for value in [True, False]:
+        assignment_copy = assignment.copy()
+        assignment_copy[var] = value
+        result, final_assignment = dpll(clauses, assignment_copy)
+        if result:
+            return True, final_assignment
+    return False, {}
+
+# === DAVIS–PUTNAM (DP) ===
+def resolve(ci, cj):
+    for lit in ci:
+        if -lit in cj:
+            new_clause = list(set(ci + cj))
+            new_clause.remove(lit)
+            new_clause.remove(-lit)
+            return new_clause
+    return None
+
+def dp(formula):
+    clauses = formula.copy()
+    variables = set(abs(lit) for clause in clauses for lit in clause)
+    while variables:
+        var = variables.pop()
+        pos_clauses = [c for c in clauses if var in c]
+        neg_clauses = [c for c in clauses if -var in c]
+        new_clauses = []
+        for ci in pos_clauses:
+            for cj in neg_clauses:
+                resolvent = resolve(ci, cj)
+                if resolvent is not None and len(resolvent) == 0:
+                    return False
+                if resolvent is not None and resolvent not in new_clauses:
+                    new_clauses.append(resolvent)
+        clauses = [c for c in clauses if var not in c and -var not in c] + new_clauses
+        if not clauses:
+            return True
+    return True
+
+# === REZOLUȚIE ===
+def optimized_resolution(formula):
+    clauses = [frozenset(clause) for clause in formula]
+    known_clauses = set(clauses)
+    new_clauses = set()
+    while True:
+        pairs = list(combinations(known_clauses, 2))
+        for (ci, cj) in pairs:
+            for lit in ci:
+                if -lit in cj:
+                    resolvent = (ci | cj) - {lit, -lit}
+                    if len(resolvent) == 0:
+                        return False
+                    resolvent_frozen = frozenset(resolvent)
+                    if resolvent_frozen not in known_clauses and resolvent_frozen not in new_clauses:
+                        new_clauses.add(resolvent_frozen)
+                    break
+        if not new_clauses:
+            return True
+        known_clauses.update(new_clauses)
+        new_clauses.clear()
+
+# === COMPARAȚIE METODE ===
+def run_all_methods_manual_output(fnc_formula, var_map):
+    print("\n===== COMPARAȚIE METODE =====")
+
+    # DPLL
+    tracemalloc.start()
+    start = time.time()
+    result_dpll, assign_dpll = dpll(fnc_formula)
+    end = time.time()
+    current, peak = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
+    print("\n[DPLL]")
+    print(f"  Satisfiabilă? {'DA' if result_dpll else 'NU'}")
+    if result_dpll:
+        print("  Atribuire:", ", ".join(f"{var_map[k]}={v}" for k, v in assign_dpll.items()))
+    print(f"  Timp execuție: {end - start:.6f} sec")
+    print(f"  Memorie maximă utilizată: {peak / 1024:.2f} KB")
+
+    # DP
+    tracemalloc.start()
+    start = time.time()
+    result_dp = dp(fnc_formula)
+    end = time.time()
+    current, peak = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
+    print("\n[DP]")
+    print(f"  Satisfiabilă? {'DA' if result_dp else 'NU'}")
+    print(f"  Timp execuție: {end - start:.6f} sec")
+    print(f"  Memorie maximă utilizată: {peak / 1024:.2f} KB")
+
+    # Rezoluție
+    tracemalloc.start()
+    start = time.time()
+    result_res = optimized_resolution(fnc_formula)
+    end = time.time()
+    current, peak = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
+    print("\n[Rezoluție]")
+    print(f"  Satisfiabilă? {'DA' if result_res else 'NU'}")
+    print(f"  Timp execuție: {end - start:.6f} sec")
+    print(f"  Memorie maximă utilizată: {peak / 1024:.2f} KB")
+
+# === RULARE PRINCIPALĂ ===
+if __name__ == "__main__":
+    print("Introduceți formula FNC (câte o clauză pe linie, ex: 1 -2)")
+    print("Apăsați ENTER pe o linie goală pentru a termina.\n")
+
+    formula_fnc = []
+    try:
+        while True:
+            line = input()
+            if not line.strip():
+                break
+            clause = list(map(int, line.strip().split()))
+            formula_fnc.append(clause)
+
+        if not formula_fnc:
+            raise ValueError("Formula este goală.")
+
+        all_vars = sorted(set(abs(lit) for clause in formula_fnc for lit in clause))
+        var_map = {v: chr(65 + i) for i, v in enumerate(all_vars)}  # 1->A, 2->B, etc.
+
+        truth_table_manual(formula_fnc, var_map)
+        run_all_methods_manual_output(formula_fnc, var_map)
+
+    except Exception as e:
+        print(f"\nEroare: {e}")
